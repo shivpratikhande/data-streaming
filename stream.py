@@ -5,7 +5,7 @@ import uuid
 
 default_args = {
     'owner': 'airscholar',
-    'start_date': datetime(2023, 9, 3, 10, 00)
+    'start_date': datetime.now()
 }
 
 def get_data():
@@ -20,7 +20,7 @@ def get_data():
 def format_data(res):
     data = {}
     location = res['location']
-    data['id'] = uuid.uuid4()
+    data['id'] = str(uuid.uuid4())
     data['first_name'] = res['name']['first']
     data['last_name'] = res['name']['last']
     data['gender'] = res['gender']
@@ -42,7 +42,7 @@ def stream_data():
     import time
     import logging
 
-    producer = KafkaProducer(bootstrap_servers=['broker:29092'], max_block_ms=5000)
+    producer = KafkaProducer(bootstrap_servers=['localhost:9092'], max_block_ms=5000)
     curr_time = time.time()
 
     while True:
@@ -56,7 +56,8 @@ def stream_data():
         except Exception as e:
             logging.error(f'An error occured: {e}')
             continue
-
+        
+        
 with DAG('user_automation',
          default_args=default_args,
          schedule='@daily',

@@ -1,27 +1,22 @@
 from datetime import datetime
 from airflow import DAG
-from airflow.providers.standard.operators.python import PythonOperator
+from airflow.operators.python import PythonOperator
 import uuid
-from airflow.timetables.trigger import CronTriggerTimetable
 
 default_args = {
     'owner': 'airscholar',
-    'start_date': datetime(2023, 9, 3, 10, 0)
+    'start_date': datetime(2024, 1, 1)  # Static date
 }
 
 def get_data():
     import requests
-
-    res = requests.get("https://randomuser.me/api/")
-    res = res.json()
-    res = res['results'][0]
-
-    return res
+    res = requests.get("https://randomuser.me/api/").json()
+    return res['results'][0]
 
 def format_data(res):
     data = {}
     location = res['location']
-    data['id'] = uuid.uuid4()
+    data['id'] = str(uuid.uuid4())
     data['first_name'] = res['name']['first']
     data['last_name'] = res['name']['last']
     data['gender'] = res['gender']
@@ -34,7 +29,6 @@ def format_data(res):
     data['registered_date'] = res['registered']['date']
     data['phone'] = res['phone']
     data['picture'] = res['picture']['medium']
-
     return data
 
 def stream_data():
@@ -43,24 +37,27 @@ def stream_data():
     import time
     import logging
 
-    producer = KafkaProducer(bootstrap_servers=['broker:29092'], max_block_ms=5000)
-    curr_time = time.time()
+    producer = KafkaProducer(
+        bootstrap_servers=['broker:29092'],
+        value_serializer=lambda v: json.dumps(v).encode('utf-8'),
+        max_block_ms=5000
+    )
 
-    while True:
-        if time.time() > curr_time + 60: #1 minute
-            break
+    curr_time = time.time()
+    while time.time() < curr_time + 60:
         try:
             res = get_data()
-            res = format_data(res)
-
-            producer.send('users_created', json.dumps(res).encode('utf-8'))
+            formatted = format_data(res)
+            producer.send('users_created', formatted)
         except Exception as e:
-            logging.error(f'An error occured: {e}')
+            logging.error(f'An error occurred: {e}')
             continue
+
+    producer.close()
 
 with DAG('user_automation',
          default_args=default_args,
-         schedule_interval='@daily',
+         schedule='@daily',
          catchup=False) as dag:
 
     streaming_task = PythonOperator(
