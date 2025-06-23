@@ -2,10 +2,11 @@ from datetime import datetime
 from airflow import DAG
 from airflow.providers.standard.operators.python import PythonOperator
 import uuid
+from airflow.timetables.trigger import CronTriggerTimetable
 
 default_args = {
     'owner': 'airscholar',
-    'start_date': datetime(2023, 9, 3, 10, 00)
+    'start_date': datetime(2023, 9, 3, 10, 0)
 }
 
 def get_data():
@@ -59,7 +60,7 @@ def stream_data():
 
 with DAG('user_automation',
          default_args=default_args,
-         schedule='@daily',
+         schedule_interval='@daily',
          catchup=False) as dag:
 
     streaming_task = PythonOperator(
